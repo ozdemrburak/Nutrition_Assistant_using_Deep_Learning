@@ -1,8 +1,9 @@
 ﻿streamlit~=1.37.1
 torch==2.7.0
 torchvision==0.2.1
-pillow==10.2.0
+pillow
 huggingface-hub == 0.34.4
+
 
 
 
