@@ -38,9 +38,9 @@ def predict_image(image_path):
     model_path = hf_hub_download(repo_id="theycallmeburki/resnet_regressor_nutrition5k", filename="resnet_regressor_state_dict.pth")
     state_dict = torch.load(model_path)
     model.load_state_dict(state_dict)
-    if torch.cuda.is_available():
-        image = image.to('cuda')
-        model.to('cuda')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    image = image.to(device)
+    model = model.to(device)
     with torch.no_grad():
         scaled_prediction = model(image)
 
