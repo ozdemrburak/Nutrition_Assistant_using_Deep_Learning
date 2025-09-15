@@ -36,7 +36,7 @@ def predict_image(image_path):
     image = image_transform(image_path)
     model = ResNetRegressor()
     model_path = hf_hub_download(repo_id="theycallmeburki/resnet_regressor_nutrition5k", filename="resnet_regressor_state_dict.pth")
-    state_dict = torch.load(model_path)
+    state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = image.to(device)
