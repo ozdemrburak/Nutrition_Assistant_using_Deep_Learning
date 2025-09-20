@@ -166,7 +166,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: #666;'>
-    <p>SigLIP2 Regressor & Google Gemini 2.0 Flash ile güçlendirilmiştir</p>
+    <p>Custom SigLIP2 Regressor & Google Gemini 2.5 Flash ile güçlendirilmiştir</p>
     </div>
     """,
     unsafe_allow_html=True
