@@ -3,7 +3,7 @@ torch==2.7.0
 torchvision==0.22.0
 pillow == 10.4.0
 huggingface-hub == 0.34.4
-
+google-generativeai == 0.8.5
 
 
 
