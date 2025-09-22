@@ -56,7 +56,7 @@ with col1:
     if uploaded_file is not None:
         # Display uploaded image
         image = Image.open(uploaded_file)
-        st.image(image, caption="Yüklenen Fotoğraf", use_column_width=True)
+        st.image(image, caption="Yüklenen Fotoğraf", use_column_width=250)
 
         if gemini_api_key:
             try:
@@ -120,54 +120,67 @@ with col1:
             except Exception as e:
                 st.error(f"Fotoğraf işlenirken hata: {str(e)}")
 
-with col2:
-    st.header("💬 Beslenme Sohbeti")
+    with col2:
+        st.header("💬 Beslenme Sohbeti")
 
-    # Display chat history in a scrollable container
-    if st.session_state.chat_history:
-        st.markdown(
-            """
-            <div style="height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; 
-                        border-radius: 10px; padding: 15px; background-color: #fafafa; 
-                        margin-bottom: 20px;">
-            """,
-            unsafe_allow_html=True
-        )
+        # Scrollable chat container
+        chat_container = st.container()
+        with chat_container:
+            if st.session_state.chat_history:
+                chat_area = st.container()
+                with chat_area:
+                    # Scrollable box için CSS
+                    st.markdown(
+                        """
+                        <style>
+                        .scroll-box {
+                            max-height: 400px;
+                            overflow-y: auto;
+                            border: 1px solid #e0e0e0;
+                            border-radius: 10px;
+                            padding: 15px;
+                            background-color: #fafafa;
+                        }
+                        .user-msg {
+                            background-color: #e3f2fd;
+                            padding: 10px;
+                            border-radius: 8px;
+                            margin: 8px 0;
+                            border-left: 4px solid #2196f3;
+                        }
+                        .assistant-msg {
+                            background-color: #f1f8e9;
+                            padding: 10px;
+                            border-radius: 8px;
+                            margin: 8px 0;
+                            border-left: 4px solid #4caf50;
+                        }
+                        </style>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-        for i, message in enumerate(st.session_state.chat_history):
-            if message['role'] == 'user':
-                st.markdown(
-                    f"""
-                    <div style="background-color: #e3f2fd; padding: 10px; border-radius: 8px; 
-                                margin: 8px 0; border-left: 4px solid #2196f3;">
-                        <strong>🙋 Siz:</strong> {message['content']}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
+                    for i, message in enumerate(st.session_state.chat_history):
+                        if message['role'] == 'user':
+                            st.markdown(f'<div class="user-msg"><strong>🙋 Siz:</strong> {message["content"]}</div>',
+                                        unsafe_allow_html=True)
+                        else:
+                            st.markdown(
+                                f'<div class="assistant-msg"><strong>🤖 Asistan:</strong> {message["content"]}</div>',
+                                unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.markdown(
-                    f"""
-                    <div style="background-color: #f1f8e9; padding: 10px; border-radius: 8px; 
-                                margin: 8px 0; border-left: 4px solid #4caf50;">
-                        <strong>🤖 Asistan:</strong> {message['content']}
+                    """
+                    <div style="height: 150px; border: 2px dashed #ccc; border-radius: 10px; 
+                                display: flex; align-items: center; justify-content: center; 
+                                color: #666; margin-bottom: 20px;">
+                        <p>💭 Sohbet henüz başlamadı. Bir fotoğraf yükleyin ve soru sormaya başlayın!</p>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-
-        st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(
-            """
-            <div style="height: 150px; border: 2px dashed #ccc; border-radius: 10px; 
-                        display: flex; align-items: center; justify-content: center; 
-                        color: #666; margin-bottom: 20px;">
-                <p>💭 Sohbet henüz başlamadı. Bir fotoğraf yükleyin ve soru sormaya başlayın!</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
     # Chat input
     if st.session_state.current_analysis and gemini_api_key:
