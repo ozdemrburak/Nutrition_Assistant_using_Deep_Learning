@@ -56,7 +56,7 @@ with col1:
     if uploaded_file is not None:
         # Display uploaded image
         image = Image.open(uploaded_file)
-        st.image(image, caption="Yüklenen Fotoğraf", use_column_width=250)
+        st.image(image, caption="Yüklenen Fotoğraf", use_column_width=50)
 
         if gemini_api_key:
             try:
