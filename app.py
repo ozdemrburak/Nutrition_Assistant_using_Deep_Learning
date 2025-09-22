@@ -5,14 +5,22 @@ from get_prediction import predict_image
 
 # Configure page
 st.set_page_config(
-    page_title="Beslenme Analiz Uygulaması",
+    page_title="Nutrition Assistant",
     page_icon="🍎",
     layout="wide"
 )
 
+# Initialize session state
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
+if 'current_analysis' not in st.session_state:
+    st.session_state.current_analysis = None
+if 'ai_response' not in st.session_state:
+    st.session_state.ai_response = None
+
 # Title and description
-st.title("🍎 Yiyecek Beslenme Analizi")
-st.markdown("Detaylı beslenme bilgisi almak için bir yiyecek fotoğrafı yükleyin!")
+st.title("🍎 Beslenme Asistanı Chatbot")
+st.markdown("Yiyecek fotoğrafınızı analiz edin ve beslenme hakkında soru sorun!")
 
 # Sidebar for API configuration
 with st.sidebar:
@@ -26,6 +34,13 @@ with st.sidebar:
     if gemini_api_key:
         genai.configure(api_key=gemini_api_key)
         st.success("✅ API anahtarı yapılandırıldı!")
+
+    st.markdown("---")
+    if st.button("🗑️ Sohbeti Temizle"):
+        st.session_state.chat_history = []
+        st.session_state.current_analysis = None
+        st.session_state.ai_response = None
+        st.rerun()
 
 # Main content
 col1, col2 = st.columns([1, 1])
@@ -43,123 +58,201 @@ with col1:
         image = Image.open(uploaded_file)
         st.image(image, caption="Yüklenen Fotoğraf", use_column_width=True)
 
+        if gemini_api_key:
+            try:
+                with st.spinner("Fotoğraf analiz ediliyor..."):
+                    # Process image with SigLIP2 regressor
+                    weight, cal, carb, fat, protein = predict_image(uploaded_file).squeeze().tolist()
+
+                # Store analysis results
+                st.session_state.current_analysis = {
+                    'weight': weight,
+                    'calories': cal,
+                    'carbs': carb,
+                    'fat': fat,
+                    'protein': protein,
+                    'image': uploaded_file
+                }
+
+                # Display raw predictions
+                st.subheader("🔢 Tespit Edilen Değerler")
+                metrics_col1, metrics_col2 = st.columns(2)
+
+                with metrics_col1:
+                    st.metric("Ağırlık", f"{weight:.1f}g")
+                    st.metric("Kalori", f"{cal:.0f} kcal")
+                    st.metric("Karbonhidrat", f"{carb:.1f}g")
+
+                with metrics_col2:
+                    st.metric("Yağ", f"{fat:.1f}g")
+                    st.metric("Protein", f"{protein:.1f}g")
+
+                # Initial analysis if not done yet
+                prediction_key = f"{uploaded_file.name}_{weight:.1f}_{cal:.0f}_{carb:.1f}_{fat:.1f}_{protein:.1f}"
+
+                if 'last_prediction_key' not in st.session_state or st.session_state.get(
+                        'last_prediction_key') != prediction_key:
+                    with st.spinner("İlk analiz yapılıyor..."):
+                        try:
+                            model = genai.GenerativeModel('gemini-2.5-flash')
+                            image_pil = Image.open(uploaded_file)
+
+                            initial_prompt = f"""
+                            Bu fotoğraftaki yiyeceği tanımla ve beslenme değerlerini analiz et:
+
+                            Ağırlık: {weight:.1f}g, Kalori: {cal:.0f} kcal, Karbonhidrat: {carb:.1f}g, Yağ: {fat:.1f}g, Protein: {protein:.1f}g
+
+                            Kısa ve öz bir analiz yap (150-200 kelime). Yiyeceği tanımla ve temel beslenme özelliklerini belirt.
+                            """
+
+                            response = model.generate_content([initial_prompt, image_pil])
+
+                            # Add to chat history
+                            st.session_state.chat_history.append({
+                                'role': 'assistant',
+                                'content': f"📊 **İlk Analiz Tamamlandı!**\n\n{response.text}"
+                            })
+                            st.session_state.last_prediction_key = prediction_key
+
+                        except Exception as e:
+                            st.error(f"Analiz hatası: {str(e)}")
+
+            except Exception as e:
+                st.error(f"Fotoğraf işlenirken hata: {str(e)}")
+
 with col2:
-    st.header("📊 Beslenme Analizi")
+    st.header("💬 Beslenme Sohbeti")
 
-    if uploaded_file is not None and gemini_api_key:
-        try:
-            with st.spinner("Fotoğraf analiz ediliyor..."):
-                # Process image with your SigLIP2 regressor
-                # Note: You'll need to import your predict_image function
-                weight, cal, carb, fat, protein = predict_image(uploaded_file).squeeze().tolist()
+    # Display chat history
+    chat_container = st.container()
+    with chat_container:
+        for message in st.session_state.chat_history:
+            if message['role'] == 'user':
+                st.markdown(f"**🙋 Siz:** {message['content']}")
+            else:
+                st.markdown(f"**🤖 Asistan:** {message['content']}")
+            st.markdown("---")
 
-            # Display raw predictions
-            st.subheader("🔢 Tespit Edilen Değerler")
-            metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+    # Chat input
+    if st.session_state.current_analysis and gemini_api_key:
+        user_question = st.text_input(
+            "Beslenme hakkında soru sorun:",
+            placeholder="Örnek: Bu yiyecek kaç kişilik? Diyetime uygun mu? Hangi besinler eksik?",
+            key="user_input"
+        )
 
-            with metrics_col1:
-                st.metric("Ağırlık", f"{weight:.1f}g")
-                st.metric("Kalori", f"{cal:.0f} kcal")
+        col_send, col_examples = st.columns([1, 2])
 
-            with metrics_col2:
-                st.metric("Karbonhidrat", f"{carb:.1f}g")
-                st.metric("Yağ", f"{fat:.1f}g")
+        with col_send:
+            if st.button("📨 Gönder") and user_question:
+                # Add user message to history
+                st.session_state.chat_history.append({
+                    'role': 'user',
+                    'content': user_question
+                })
 
-            with metrics_col3:
-                st.metric("Protein", f"{protein:.1f}g")
+                # Generate response
+                try:
+                    with st.spinner("Cevap hazırlanıyor..."):
+                        model = genai.GenerativeModel('gemini-2.5-flash')
 
-            # Generate AI interpretation with caching
-            # Create a unique key for this image and predictions
-            prediction_key = f"{uploaded_file.name}_{weight:.1f}_{cal:.0f}_{carb:.1f}_{fat:.1f}_{protein:.1f}"
+                        # Prepare context
+                        analysis = st.session_state.current_analysis
+                        context = f"""
+                        Kullanıcının yüklediği yiyecek hakkında şu veriler var:
+                        Ağırlık: {analysis['weight']:.1f}g
+                        Kalori: {analysis['calories']:.0f} kcal
+                        Karbonhidrat: {analysis['carbs']:.1f}g
+                        Yağ: {analysis['fat']:.1f}g
+                        Protein: {analysis['protein']:.1f}g
 
-            if 'ai_response' not in st.session_state or st.session_state.get('last_prediction_key') != prediction_key:
-                with st.spinner("AI öngörüleri alınıyor..."):
-                    try:
-                        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                        Sohbet geçmişi:
+                        {chr(10).join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.chat_history[-5:]])}
 
-                        # Prepare the image for Gemini
-                        image_pil = Image.open(uploaded_file)
+                        Kullanıcı sorusu: {user_question}
 
-                        prompt = f"""
-                        Bu fotoğrafta gördüğün yiyeceği tanımla ve aşağıdaki beslenme verilerini analiz et:
-
-                        Ağırlık: {weight:.1f}g
-                        Kalori: {cal:.0f} kcal
-                        Karbonhidrat: {carb:.1f}g
-                        Yağ: {fat:.1f}g
-                        Protein: {protein:.1f}g
-
-                        ÖNEMLİ: Yorumunu sadece verilen sayısal değerlere dayandır, fotoğraftaki görünümü sadece yiyecek türünü tanımlamak için kullan.
-
-                        Lütfen şunları sağla:
-                        1. Fotoğraftaki yiyeceğin ne olduğunu kısaca belirt
-                        2. Verilen beslenme değerlerinin bu yiyecek için değerlendirmesi
-                        3. Sağlık faydaları veya dikkat edilmesi gerekenler
-                        4. Bu yiyeceğin dengeli bir diyete nasıl uyduğu
-                        5. Dikkat çekici beslenme özelikleri
-                        6. Varsa porsiyon boyutu önerileri
-
-                        Cevabı Türkçe olarak ver. Bilgilendirici ama anlaşılır tut, yaklaşık 250-350 kelime.
+                        Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
                         """
 
-                        response = model.generate_content([prompt, image_pil])
+                        # Include image for better context
+                        image_pil = Image.open(analysis['image'])
+                        response = model.generate_content([context, image_pil])
 
-                        # Cache the response
-                        st.session_state['ai_response'] = response.text
-                        st.session_state['last_prediction_key'] = prediction_key
+                        # Add response to history
+                        st.session_state.chat_history.append({
+                            'role': 'assistant',
+                            'content': response.text
+                        })
 
-                    except Exception as e:
-                        st.error(f"AI öngörüleri alınırken hata: {str(e)}")
-                        st.info("Ham beslenme verileri yukarıda hala mevcut.")
-                        st.session_state['ai_response'] = None
+                        # Clear input and rerun
+                        st.rerun()
 
-            # Display cached response
-            if st.session_state.get('ai_response'):
-                st.subheader("🤖 AI Beslenme Öngörüleri")
-                st.write(st.session_state['ai_response'])
+                except Exception as e:
+                    st.error(f"Cevap alınırken hata: {str(e)}")
 
-            # Additional visualizations
-            st.subheader("📈 Beslenme Dağılımı")
+        with col_examples:
+            st.markdown("**💡 Örnek sorular:**")
+            example_questions = [
+                "Bu yiyecek sağlıklı mı?",
+                "Kaç kişilik porsiyon?",
+                "Hangi vitaminler var?",
+                "Diyetime uygun mu?",
+                "Kalori yoğunluğu nasıl?"
+            ]
 
-            # Macronutrient pie chart
-            import plotly.express as px
-            import pandas as pd
+            for question in example_questions:
+                if st.button(question, key=f"example_{question}"):
+                    st.session_state.chat_history.append({
+                        'role': 'user',
+                        'content': question
+                    })
+                    st.rerun()
 
-            # Calculate calories from macronutrients (approximate)
-            carb_cal = carb * 4
-            protein_cal = protein * 4
-            fat_cal = fat * 9
+    elif not st.session_state.current_analysis:
+        st.info("👆 Sohbet etmek için önce bir fotoğraf yükleyin ve analiz edin.")
+    elif not gemini_api_key:
+        st.warning("⚠️ Sohbet için API anahtarınızı girin.")
 
-            macro_df = pd.DataFrame({
-                'Makrobesin': ['Karbonhidrat', 'Protein', 'Yağ'],
-                'Kalori': [carb_cal, protein_cal, fat_cal],
-                'Gram': [carb, protein, fat]
-            })
+# Visualization section (if analysis exists)
+if st.session_state.current_analysis:
+    st.header("📈 Görsel Analiz")
 
-            fig = px.pie(macro_df, values='Kalori', names='Makrobesin',
-                         title="Makrobesinlere Göre Kalorik Dağılım")
-            st.plotly_chart(fig, use_container_width=True)
+    analysis = st.session_state.current_analysis
 
-            # Nutritional density bar chart
-            density_df = pd.DataFrame({
-                'Besin': ['Karbonhidrat', 'Protein', 'Yağ'],
-                '100g başına': [carb / weight * 100, protein / weight * 100, fat / weight * 100]
-            })
+    col_viz1, col_viz2 = st.columns(2)
 
-            fig2 = px.bar(density_df, x='Besin', y='100g başına',
-                          title="Besin Yoğunluğu (100g başına gram)")
-            st.plotly_chart(fig2, use_container_width=True)
+    with col_viz1:
+        # Macronutrient pie chart
+        import plotly.express as px
+        import pandas as pd
 
-        except Exception as e:
-            st.error(f"Fotoğraf işlenirken hata: {str(e)}")
-            st.info(
-                "Lütfen predict_image fonksiyonunuzun doğru şekilde import edildiğinden ve fotoğrafın geçerli olduğundan emin olun.")
+        carb_cal = analysis['carbs'] * 4
+        protein_cal = analysis['protein'] * 4
+        fat_cal = analysis['fat'] * 9
 
-    elif uploaded_file is not None and not gemini_api_key:
-        st.warning("⚠️ AI öngörüleri almak için lütfen kenar çubuğuna Gemini API anahtarınızı girin.")
+        macro_df = pd.DataFrame({
+            'Makrobesin': ['Karbonhidrat', 'Protein', 'Yağ'],
+            'Kalori': [carb_cal, protein_cal, fat_cal]
+        })
 
-    elif not uploaded_file:
-        st.info("👆 Analizi başlatmak için lütfen bir fotoğraf yükleyin.")
+        fig = px.pie(macro_df, values='Kalori', names='Makrobesin',
+                     title="Kalorik Dağılım")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_viz2:
+        # Nutritional density bar chart
+        density_df = pd.DataFrame({
+            'Besin': ['Karb.', 'Protein', 'Yağ'],
+            '100g başına': [
+                analysis['carbs'] / analysis['weight'] * 100,
+                analysis['protein'] / analysis['weight'] * 100,
+                analysis['fat'] / analysis['weight'] * 100
+            ]
+        })
+
+        fig2 = px.bar(density_df, x='Besin', y='100g başına',
+                      title="Besin Yoğunluğu")
+        st.plotly_chart(fig2, use_container_width=True)
 
 # Footer
 st.markdown("---")
@@ -172,27 +265,19 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Instructions for setup
-with st.expander("📋 Kurulum Talimatları"):
+# Instructions
+with st.expander("📋 Nasıl Kullanılır"):
     st.markdown("""
-    **Bu uygulamayı kullanmak için:**
+    **Adım adım kullanım:**
 
-    1. **Gerekli paketleri yükleyin:**
-       ```bash
-       pip install streamlit google-generativeai pillow plotly pandas
-       ```
+    1. **API Anahtarı**: Kenar çubuğuna Gemini API anahtarınızı girin
+    2. **Fotoğraf Yükle**: Sol taraftan bir yiyecek fotoğrafı seçin
+    3. **İlk Analiz**: Sistem otomatik olarak beslenme analizini yapar
+    4. **Soru Sor**: Sağ taraftaki chatbot'a istediğiniz soruyu sorun
+    5. **Detaylı Bilgi**: Örnek sorulardan seçebilir veya kendi sorunuzu yazabilirsiniz
 
-    2. **Gemini API anahtarı alın:**
-       - [Google AI Studio](https://aistudio.google.com/app/apikey) adresine gidin
-       - Yeni bir API anahtarı oluşturun
-       - Kenar çubuğuna girin
-
-    3. **Modelinizi import edin:**
-       - `predict_image` fonksiyonunuzun mevcut olduğundan emin olun
-       - Üst kısma şu import'u ekleyin: `from your_model_file import predict_image`
-
-    4. **Uygulamayı çalıştırın:**
-       ```bash
-       streamlit run app.py
-       ```
+    **API Anahtarı almak için:**
+    - [Google AI Studio](https://aistudio.google.com/app/apikey) adresine gidin
+    - Yeni bir API anahtarı oluşturun
+    - Eğer API key oluşturamazsanız mail adresimden lütfen iletişime geçin: ozdemrburak@yahoo.com
     """)

@@ -1,23 +1,32 @@
 import torch
 import torch.nn as nn
-import torchvision.models as models
 from PIL import Image
 import torchvision.transforms as transforms
 from huggingface_hub import hf_hub_download
+from transformers import AutoModel
 
+class Siglip2Regressor(nn.Module):
 
-class ResNetRegressor(nn.Module):
-  def __init__(self, num_outputs=5):
-    super(ResNetRegressor, self).__init__()
-    self.backbone = models.resnet101(weights=models.ResNet101_Weights.DEFAULT)
+  def __init__(self, model_name = "google/siglip2-base-patch16-224", output_dim = 5):
+    super().__init__()
+    full_model = AutoModel.from_pretrained(model_name)
+    self.vision_encoder = full_model.vision_model # text kısmı gerekli olmadığından yalnızca vision_encoder aldım
+    # freeze model
+    for param in self.vision_encoder.parameters():
+      param.requires_grad = False
+    for param in self.vision_encoder.head.mlp.parameters():
+      param.requires_grad = True
+
+    hidden_size = self.vision_encoder.head.mlp.fc2.out_features
     self.reg_head = nn.Sequential(
         nn.ReLU(),
         nn.Dropout(0.3),
-        nn.Linear(in_features=1000, out_features=num_outputs)
+        nn.Linear(hidden_size, output_dim)
     )
 
   def forward(self, x):
-    x = self.backbone(x)
+    x = self.vision_encoder(x)
+    x = x.pooler_output #siglip finetune ederken gerekli, kullanmazsa hata veriyor
     x = self.reg_head(x)
     return x
 
@@ -33,10 +42,13 @@ def image_transform(image_path):
 
 
 def predict_image(image_path):
+    """
+    - Eğittiğim modeli huggingface'e yükledim ve oradan çekiyorum.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = image_transform(image_path)
-    model = ResNetRegressor()
-    model_path = hf_hub_download(repo_id="theycallmeburki/resnet_regressor_nutrition5k", filename="resnet_regressor_state_dict.pth")
+    model = Siglip2Regressor()
+    model_path = hf_hub_download(repo_id="theycallmeburki/siglip2_regressor", filename="siglip2_regressor_state_dict.pth")
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     image = image.to(device)
@@ -48,6 +60,10 @@ def predict_image(image_path):
 
 
 def unscale_prediction(output):
+    """
+    - Model eğitirken StandardScaler kullandık. Çıktılar bu sebepten ölçeklenmiş halde dönüyor.
+    - Bu fonksiyon gerçek çıktıları döndürür.
+    """
     y_mean = [211.20069936, 253.61141603, 12.79815003, 18.99648289, 17.76016044]
     y_std = [151.06439266, 206.40657935, 13.34529479, 16.02617264, 19.58984867]
     y_pred_scaled = output.cpu().numpy()
@@ -55,10 +71,3 @@ def unscale_prediction(output):
 
     return y_pred_original
 
-
-def main():
-    print(predict_image(r"C:\Users\ozdem\OneDrive\Masaüstü\Nutristant\tavuk.jpg"))
-
-
-if __name__ == "__main__":
-    main()
