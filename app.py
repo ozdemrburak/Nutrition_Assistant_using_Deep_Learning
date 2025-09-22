@@ -62,7 +62,7 @@ with col1:
             try:
                 with st.spinner("Fotoğraf analiz ediliyor..."):
                     # Process image with SigLIP2 regressor
-                    weight, cal, carb, fat, protein = predict_image(uploaded_file).squeeze().tolist()
+                    weight, cal, fat, carb, protein = predict_image(uploaded_file).squeeze().tolist()
 
                 # Store analysis results
                 st.session_state.current_analysis = {
