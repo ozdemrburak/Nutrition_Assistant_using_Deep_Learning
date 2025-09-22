@@ -9,6 +9,11 @@ Bu proje, tek bir yemek fotoğrafından yola çıkarak yemeğin **ağırlık (gr
 Projenin canlı demosuna aşağıdaki adresten ulaşabilirsiniz:
 **[nutritionassistant.streamlit.app](http://nutritionassistant.streamlit.app)**
 
+## Model Checkpoint
+ Modelin `state_dict` dosyasına Hugging Face üzerinden ulaşabilirsiniz:  
+👉 [theycallmeburki/siglip2_regressor](https://huggingface.co/theycallmeburki/siglip2_regressor)
+- **Hatırlatma**: Kullanabilmek için önce model class'ı tanımlanmalı ! 
+
 ## 🛠️ Teknik Detaylar
 
 ### Model Mimarisi
