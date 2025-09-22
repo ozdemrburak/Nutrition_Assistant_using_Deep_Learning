@@ -5,6 +5,17 @@ import torchvision.transforms as transforms
 from huggingface_hub import hf_hub_download
 from transformers import AutoModel
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# modeli bir kere yükle
+model = Siglip2Regressor()
+model_path = hf_hub_download(repo_id="theycallmeburki/siglip2_regressor",
+                             filename="siglip2_regressor_state_dict.pth")
+state_dict = torch.load(model_path, map_location=device)
+model.load_state_dict(state_dict)
+model = model.to(device)
+model.eval()   # dropout ve batchnorm freeze
+
 class Siglip2Regressor(nn.Module):
 
   def __init__(self, model_name = "google/siglip2-base-patch16-224", output_dim = 5):
@@ -46,13 +57,7 @@ def predict_image(image_path):
     - Eğittiğim modeli huggingface'e yükledim ve oradan çekiyorum.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    image = image_transform(image_path)
-    model = Siglip2Regressor()
-    model_path = hf_hub_download(repo_id="theycallmeburki/siglip2_regressor", filename="siglip2_regressor_state_dict.pth")
-    state_dict = torch.load(model_path, map_location=device)
-    model.load_state_dict(state_dict)
-    image = image.to(device)
-    model = model.to(device)
+    image = image_transform(image_path).to(device)
     with torch.no_grad():
         scaled_prediction = model(image)
 
@@ -68,6 +73,7 @@ def unscale_prediction(output):
     y_std = [143.11745907, 196.06303582, 12.62122967, 15.10990037, 18.22648705]
     y_pred_scaled = output.cpu().numpy()
     y_pred_original = y_pred_scaled * y_std + y_mean
+    y_pred_original = torch.clamp(y_pred_original, min=0)
 
     return y_pred_original
 
