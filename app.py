@@ -62,7 +62,7 @@ with col1:
             try:
                 with st.spinner("Fotoğraf analiz ediliyor..."):
                     # Process image with SigLIP2 regressor
-                    weight, cal, fat, carb, protein = predict_image(uploaded_file).squeeze().tolist()
+                    weight, cal, carb, fat, protein = predict_image(uploaded_file).squeeze().tolist()
 
                 # Store analysis results
                 st.session_state.current_analysis = {
@@ -236,13 +236,54 @@ with col2:
                 "Kalori yoğunluğu nasıl?"
             ]
 
-            for question in example_questions:
-                if st.button(question, key=f"example_{question}"):
+            for idx, question in enumerate(example_questions):
+                if st.button(question, key=f"example_{idx}"):
+                    # Add user message to history
                     st.session_state.chat_history.append({
                         'role': 'user',
                         'content': question
                     })
-                    st.rerun()
+
+                    # Generate response
+                    try:
+                        with st.spinner("Cevap hazırlanıyor..."):
+                            model = genai.GenerativeModel('gemini-2.5-flash')
+
+                            # Prepare context
+                            analysis = st.session_state.current_analysis
+                            context = f"""
+                            Kullanıcının yüklediği yiyecek hakkında şu veriler var:
+                            Ağırlık: {analysis['weight']:.1f}g
+                            Kalori: {analysis['calories']:.0f} kcal
+                            Karbonhidrat: {analysis['carbs']:.1f}g
+                            Yağ: {analysis['fat']:.1f}g
+                            Protein: {analysis['protein']:.1f}g
+
+                            Kullanıcı sorusu: {question}
+
+                            Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
+                            """
+
+                            # Include image for better context
+                            image_pil = Image.open(analysis['image'])
+                            response = model.generate_content([context, image_pil])
+
+                            # Add response to history
+                            st.session_state.chat_history.append({
+                                'role': 'assistant',
+                                'content': response.text
+                            })
+
+                            # Rerun to show new messages
+                            st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Cevap alınırken hata: {str(e)}")
+                        st.session_state.chat_history.append({
+                            'role': 'assistant',
+                            'content': f"Üzgünüm, bir hata oluştu: {str(e)}"
+                        })
+                        st.rerun()
 
     elif not st.session_state.current_analysis:
         st.info("👆 Sohbet etmek için önce bir fotoğraf yükleyin ve analiz edin.")
