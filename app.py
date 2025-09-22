@@ -123,15 +123,51 @@ with col1:
 with col2:
     st.header("💬 Beslenme Sohbeti")
 
-    # Display chat history
-    chat_container = st.container()
-    with chat_container:
-        for message in st.session_state.chat_history:
+    # Display chat history in a scrollable container
+    if st.session_state.chat_history:
+        st.markdown(
+            """
+            <div style="height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; 
+                        border-radius: 10px; padding: 15px; background-color: #fafafa; 
+                        margin-bottom: 20px;">
+            """,
+            unsafe_allow_html=True
+        )
+
+        for i, message in enumerate(st.session_state.chat_history):
             if message['role'] == 'user':
-                st.markdown(f"**🙋 Siz:** {message['content']}")
+                st.markdown(
+                    f"""
+                    <div style="background-color: #e3f2fd; padding: 10px; border-radius: 8px; 
+                                margin: 8px 0; border-left: 4px solid #2196f3;">
+                        <strong>🙋 Siz:</strong> {message['content']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
             else:
-                st.markdown(f"**🤖 Asistan:** {message['content']}")
-            st.markdown("---")
+                st.markdown(
+                    f"""
+                    <div style="background-color: #f1f8e9; padding: 10px; border-radius: 8px; 
+                                margin: 8px 0; border-left: 4px solid #4caf50;">
+                        <strong>🤖 Asistan:</strong> {message['content']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(
+            """
+            <div style="height: 150px; border: 2px dashed #ccc; border-radius: 10px; 
+                        display: flex; align-items: center; justify-content: center; 
+                        color: #666; margin-bottom: 20px;">
+                <p>💭 Sohbet henüz başlamadı. Bir fotoğraf yükleyin ve soru sormaya başlayın!</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     # Chat input
     if st.session_state.current_analysis and gemini_api_key:
@@ -279,5 +315,4 @@ with st.expander("📋 Nasıl Kullanılır"):
     **API Anahtarı almak için:**
     - [Google AI Studio](https://aistudio.google.com/app/apikey) adresine gidin
     - Yeni bir API anahtarı oluşturun
-    - Eğer API key oluşturamazsanız mail adresimden lütfen iletişime geçin: ozdemrburak@yahoo.com
     """)
