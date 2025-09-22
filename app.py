@@ -62,7 +62,7 @@ with col1:
             try:
                 with st.spinner("Fotoğraf analiz ediliyor..."):
                     # Process image with SigLIP2 regressor
-                    weight, cal, carb, fat, protein = predict_image(uploaded_file).squeeze().tolist()
+                    weight, cal, fat, carb, protein = predict_image(uploaded_file).squeeze().tolist()
 
                 # Store analysis results
                 st.session_state.current_analysis = {
@@ -123,40 +123,37 @@ with col1:
 with col2:
     st.header("💬 Beslenme Sohbeti")
 
-    # Display chat history in a scrollable container
+    # Display chat history in scrollable container
     if st.session_state.chat_history:
-        st.markdown(
-            """
-            <div style="height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; 
-                        border-radius: 10px; padding: 15px; background-color: #fafafa; 
-                        margin-bottom: 20px;">
-            """,
-            unsafe_allow_html=True
-        )
+        chat_html = """
+        <div id="chat-box" style="height:400px; overflow-y:auto; border:1px solid #e0e0e0; 
+                    border-radius:10px; padding:15px; background-color:#fafafa; margin-bottom:20px;">
+        """
 
-        for i, message in enumerate(st.session_state.chat_history):
+        for message in st.session_state.chat_history:
             if message['role'] == 'user':
-                st.markdown(
-                    f"""
-                    <div style="background-color: #e3f2fd; padding: 10px; border-radius: 8px; 
-                                margin: 8px 0; border-left: 4px solid #2196f3;">
-                        <strong>🙋 Siz:</strong> {message['content']}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                chat_html += f"""
+                <div style="background-color:#e3f2fd; padding:10px; border-radius:8px; 
+                            margin:8px 0; border-left:4px solid #2196f3;">
+                    <strong>🙋 Siz:</strong> {message['content']}
+                </div>
+                """
             else:
-                st.markdown(
-                    f"""
-                    <div style="background-color: #f1f8e9; padding: 10px; border-radius: 8px; 
-                                margin: 8px 0; border-left: 4px solid #4caf50;">
-                        <strong>🤖 Asistan:</strong> {message['content']}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                chat_html += f"""
+                <div style="background-color:#f1f8e9; padding:10px; border-radius:8px; 
+                            margin:8px 0; border-left:4px solid #4caf50;">
+                    <strong>🤖 Asistan:</strong> {message['content']}
+                </div>
+                """
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        chat_html += "</div>"
+        chat_html += """
+        <script>
+            var chatBox = document.getElementById('chat-box');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        </script>
+        """
+        st.markdown(chat_html, unsafe_allow_html=True)
     else:
         st.markdown(
             """
@@ -181,18 +178,12 @@ with col2:
 
         with col_send:
             if st.button("📨 Gönder") and user_question:
-                # Add user message to history
-                st.session_state.chat_history.append({
-                    'role': 'user',
-                    'content': user_question
-                })
+                st.session_state.chat_history.append({'role': 'user', 'content': user_question})
 
-                # Generate response
                 try:
                     with st.spinner("Cevap hazırlanıyor..."):
                         model = genai.GenerativeModel('gemini-2.5-flash')
 
-                        # Prepare context
                         analysis = st.session_state.current_analysis
                         context = f"""
                         Kullanıcının yüklediği yiyecek hakkında şu veriler var:
@@ -210,17 +201,10 @@ with col2:
                         Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
                         """
 
-                        # Include image for better context
                         image_pil = Image.open(analysis['image'])
                         response = model.generate_content([context, image_pil])
 
-                        # Add response to history
-                        st.session_state.chat_history.append({
-                            'role': 'assistant',
-                            'content': response.text
-                        })
-
-                        # Clear input and rerun
+                        st.session_state.chat_history.append({'role': 'assistant', 'content': response.text})
                         st.rerun()
 
                 except Exception as e:
@@ -238,18 +222,11 @@ with col2:
 
             for idx, question in enumerate(example_questions):
                 if st.button(question, key=f"example_{idx}"):
-                    # Add user message to history
-                    st.session_state.chat_history.append({
-                        'role': 'user',
-                        'content': question
-                    })
-
-                    # Generate response
+                    st.session_state.chat_history.append({'role': 'user', 'content': question})
                     try:
                         with st.spinner("Cevap hazırlanıyor..."):
                             model = genai.GenerativeModel('gemini-2.5-flash')
 
-                            # Prepare context
                             analysis = st.session_state.current_analysis
                             context = f"""
                             Kullanıcının yüklediği yiyecek hakkında şu veriler var:
@@ -264,17 +241,10 @@ with col2:
                             Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
                             """
 
-                            # Include image for better context
                             image_pil = Image.open(analysis['image'])
                             response = model.generate_content([context, image_pil])
 
-                            # Add response to history
-                            st.session_state.chat_history.append({
-                                'role': 'assistant',
-                                'content': response.text
-                            })
-
-                            # Rerun to show new messages
+                            st.session_state.chat_history.append({'role': 'assistant', 'content': response.text})
                             st.rerun()
 
                     except Exception as e:
@@ -299,7 +269,6 @@ if st.session_state.current_analysis:
     col_viz1, col_viz2 = st.columns(2)
 
     with col_viz1:
-        # Macronutrient pie chart
         import plotly.express as px
         import pandas as pd
 
@@ -317,7 +286,6 @@ if st.session_state.current_analysis:
         st.plotly_chart(fig, use_container_width=True)
 
     with col_viz2:
-        # Nutritional density bar chart
         density_df = pd.DataFrame({
             'Besin': ['Karb.', 'Protein', 'Yağ'],
             '100g başına': [
