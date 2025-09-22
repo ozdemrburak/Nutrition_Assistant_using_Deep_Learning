@@ -42,9 +42,11 @@ with st.sidebar:
         st.session_state.ai_response = None
         st.rerun()
 
-# Main content
 col1, col2 = st.columns([1, 1])
 
+# -------------------
+# COL1: Fotoğraf ve Analiz
+# -------------------
 with col1:
     st.header("📸 Fotoğraf Yükle")
     uploaded_file = st.file_uploader(
@@ -54,17 +56,16 @@ with col1:
     )
 
     if uploaded_file is not None:
-        # Display uploaded image
+        # Görüntüyü göster (küçük boyut)
         image = Image.open(uploaded_file)
         st.image(image, caption="Yüklenen Fotoğraf", width=150)
 
         if gemini_api_key:
             try:
                 with st.spinner("Fotoğraf analiz ediliyor..."):
-                    # Process image with SigLIP2 regressor - Fixed variable order
                     weight, cal, fat, carb, protein = predict_image(uploaded_file).squeeze().tolist()
 
-                # Store analysis results
+                # Analiz sonuçlarını session state'e kaydet
                 st.session_state.current_analysis = {
                     'weight': weight,
                     'calories': cal,
@@ -74,29 +75,25 @@ with col1:
                     'image': uploaded_file
                 }
 
-                # Display raw predictions
+                # Ham verileri göster
                 st.subheader("🔢 Tespit Edilen Değerler")
                 metrics_col1, metrics_col2 = st.columns(2)
-
                 with metrics_col1:
                     st.metric("Ağırlık", f"{weight:.1f}g")
                     st.metric("Kalori", f"{cal:.0f} kcal")
                     st.metric("Karbonhidrat", f"{carb:.1f}g")
-
                 with metrics_col2:
                     st.metric("Yağ", f"{fat:.1f}g")
                     st.metric("Protein", f"{protein:.1f}g")
 
-                # Initial analysis if not done yet
+                # İlk analiz promptu ve asistan cevabı
                 prediction_key = f"{uploaded_file.name}_{weight:.1f}_{cal:.0f}_{carb:.1f}_{fat:.1f}_{protein:.1f}"
 
-                if 'last_prediction_key' not in st.session_state or st.session_state.get(
-                        'last_prediction_key') != prediction_key:
+                if 'last_prediction_key' not in st.session_state or st.session_state.get('last_prediction_key') != prediction_key:
                     with st.spinner("İlk analiz yapılıyor..."):
                         try:
                             model = genai.GenerativeModel('gemini-2.5-flash')
                             image_pil = Image.open(uploaded_file)
-
                             initial_prompt = f"""
                             Bu fotoğraftaki yiyeceği tanımla ve beslenme değerlerini analiz et:
 
@@ -104,10 +101,12 @@ with col1:
 
                             Kısa ve öz bir analiz yap (150-200 kelime). Yiyeceği tanımla ve temel beslenme özelliklerini belirt.
                             """
-
                             response = model.generate_content([initial_prompt, image_pil])
 
-                            # Add to chat history
+                            # Chat geçmişine ekle
+                            if 'chat_history' not in st.session_state:
+                                st.session_state.chat_history = []
+
                             st.session_state.chat_history.append({
                                 'role': 'assistant',
                                 'content': f"📊 **İlk Analiz Tamamlandı!**\n\n{response.text}"
@@ -120,72 +119,68 @@ with col1:
             except Exception as e:
                 st.error(f"Fotoğraf işlenirken hata: {str(e)}")
 
+# -------------------
+# COL2: Scrollable Chat
+# -------------------
 with col2:
     st.header("💬 Beslenme Sohbeti")
 
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
 
-    if st.session_state.chat_history:
-        # CSS + tüm chat div
-        chat_html = """
-        <style>
-        .chat-box {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 10px;
-            background-color: #fafafa;
-            display: flex;
-            flex-direction: column;
-        }
-        .user-msg {
-            background-color: #e3f2fd;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 5px 0;
-            border-left: 4px solid #2196f3;
-            max-width: 80%;
-            align-self: flex-end;
-        }
-        .assistant-msg {
-            background-color: #f1f8e9;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 5px 0;
-            border-left: 4px solid #4caf50;
-            max-width: 80%;
-            align-self: flex-start;
-        }
-        </style>
-        <div class="chat-box">
-        """
+    # Mevcut chat geçmişini göster
+    for message in st.session_state.chat_history:
+        if message['role'] == 'user':
+            st.chat_message("user").write(message["content"])
+        else:
+            st.chat_message("assistant").write(message["content"])
 
-        # Mesajları HTML stringine ekle
-        for message in st.session_state.chat_history:
-            if message['role'] == 'user':
-                chat_html += f'<div class="user-msg">🙋 <strong>Siz:</strong> {message["content"]}</div>'
-            else:
-                chat_html += f'<div class="assistant-msg">🤖 <strong>Asistan:</strong> {message["content"]}</div>'
+    # Kullanıcıdan input al
+    if st.session_state.current_analysis and gemini_api_key:
+        user_question = st.chat_input("Beslenme hakkında soru sorun...")
 
-        chat_html += '</div>'
+        if user_question:
+            # Kullanıcı mesajını kaydet ve göster
+            st.session_state.chat_history.append({
+                "role": "user",
+                "content": user_question
+            })
+            st.chat_message("user").write(user_question)
 
-        # Tek markdown ile render
-        st.markdown(chat_html, unsafe_allow_html=True)
+            # Asistan cevabı
+            try:
+                with st.spinner("Cevap hazırlanıyor..."):
+                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    analysis = st.session_state.current_analysis
 
-    else:
-        st.markdown(
-            """
-            <div style="height: 400px; border: 2px dashed #ccc; border-radius: 10px; 
-                        display: flex; align-items: center; justify-content: center; 
-                        color: #666; margin-bottom: 20px; padding: 10px;">
-                <p>💭 Sohbet henüz başlamadı. Bir fotoğraf yükleyin ve soru sormaya başlayın!</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+                    context = f"""
+                    Kullanıcının yüklediği yiyecek hakkında şu veriler var:
+                    Ağırlık: {analysis['weight']:.1f}g
+                    Kalori: {analysis['calories']:.0f} kcal
+                    Karbonhidrat: {analysis['carbs']:.1f}g
+                    Yağ: {analysis['fat']:.1f}g
+                    Protein: {analysis['protein']:.1f}g
 
+                    Sohbet geçmişi:
+                    {chr(10).join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history[-5:]])}
+
+                    Kullanıcı sorusu: {user_question}
+
+                    Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
+                    """
+
+                    image_pil = Image.open(analysis['image'])
+                    response = model.generate_content([context, image_pil])
+
+                    # Asistan mesajını kaydet ve göster
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "content": response.text
+                    })
+                    st.chat_message("assistant").write(response.text)
+
+            except Exception as e:
+                st.chat_message("assistant").write(f"Üzgünüm, bir hata oluştu: {str(e)}")
 
 # Chat input
 if st.session_state.current_analysis and gemini_api_key:
