@@ -2,15 +2,21 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 from get_prediction import predict_image
+import plotly.express as px
+import pandas as pd
 
-# Configure page
+# -------------------
+# Page Config
+# -------------------
 st.set_page_config(
     page_title="Nutrition Assistant",
     page_icon="🍎",
     layout="wide"
 )
 
-# Initialize session state
+# -------------------
+# Session State
+# -------------------
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'current_analysis' not in st.session_state:
@@ -18,11 +24,15 @@ if 'current_analysis' not in st.session_state:
 if 'ai_response' not in st.session_state:
     st.session_state.ai_response = None
 
-# Title and description
+# -------------------
+# Title
+# -------------------
 st.title("🍎 Beslenme Asistanı Chatbot")
 st.markdown("Yiyecek fotoğrafınızı analiz edin ve beslenme hakkında soru sorun!")
 
-# Sidebar for API configuration
+# -------------------
+# Sidebar - API
+# -------------------
 with st.sidebar:
     st.header("⚙️ Yapılandırma")
     gemini_api_key = st.text_input(
@@ -42,6 +52,9 @@ with st.sidebar:
         st.session_state.ai_response = None
         st.rerun()
 
+# -------------------
+# Layout: Columns
+# -------------------
 col1, col2 = st.columns([1, 1])
 
 # -------------------
@@ -56,7 +69,7 @@ with col1:
     )
 
     if uploaded_file is not None:
-        # Görüntüyü göster (küçük boyut)
+        # Görüntüyü göster
         image = Image.open(uploaded_file)
         st.image(image, caption="Yüklenen Fotoğraf", width=150)
 
@@ -88,7 +101,6 @@ with col1:
 
                 # İlk analiz promptu ve asistan cevabı
                 prediction_key = f"{uploaded_file.name}_{weight:.1f}_{cal:.0f}_{carb:.1f}_{fat:.1f}_{protein:.1f}"
-
                 if 'last_prediction_key' not in st.session_state or st.session_state.get('last_prediction_key') != prediction_key:
                     with st.spinner("İlk analiz yapılıyor..."):
                         try:
@@ -104,9 +116,6 @@ with col1:
                             response = model.generate_content([initial_prompt, image_pil])
 
                             # Chat geçmişine ekle
-                            if 'chat_history' not in st.session_state:
-                                st.session_state.chat_history = []
-
                             st.session_state.chat_history.append({
                                 'role': 'assistant',
                                 'content': f"📊 **İlk Analiz Tamamlandı!**\n\n{response.text}"
@@ -124,9 +133,6 @@ with col1:
 # -------------------
 with col2:
     st.header("💬 Beslenme Sohbeti")
-
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
 
     # Mevcut chat geçmişini göster
     for message in st.session_state.chat_history:
@@ -182,133 +188,14 @@ with col2:
             except Exception as e:
                 st.chat_message("assistant").write(f"Üzgünüm, bir hata oluştu: {str(e)}")
 
-# Chat input
-if st.session_state.current_analysis and gemini_api_key:
-    user_question = st.text_input(
-        "Beslenme hakkında soru sorun:",
-        placeholder="Örnek: Bu yiyecek kaç kişilik? Diyetime uygun mu? Hangi besinler eksik?",
-        key="user_input"
-    )
-
-    col_send, col_examples = st.columns([1, 2])
-
-    with col_send:
-        if st.button("📨 Gönder") and user_question:
-            # Add user message to history
-            st.session_state.chat_history.append({
-                'role': 'user',
-                'content': user_question
-            })
-
-            # Generate response
-            try:
-                with st.spinner("Cevap hazırlanıyor..."):
-                    model = genai.GenerativeModel('gemini-2.5-flash')
-
-                    # Prepare context
-                    analysis = st.session_state.current_analysis
-                    context = f"""
-                        Kullanıcının yüklediği yiyecek hakkında şu veriler var:
-                        Ağırlık: {analysis['weight']:.1f}g
-                        Kalori: {analysis['calories']:.0f} kcal
-                        Karbonhidrat: {analysis['carbs']:.1f}g
-                        Yağ: {analysis['fat']:.1f}g
-                        Protein: {analysis['protein']:.1f}g
-
-                        Sohbet geçmişi:
-                        {chr(10).join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.chat_history[-5:]])}
-
-                        Kullanıcı sorusu: {user_question}
-
-                        Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
-                        """
-
-                    # Include image for better context
-                    image_pil = Image.open(analysis['image'])
-                    response = model.generate_content([context, image_pil])
-
-                    # Add response to history
-                    st.session_state.chat_history.append({
-                        'role': 'assistant',
-                        'content': response.text
-                    })
-
-                    # Clear input and rerun
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"Cevap alınırken hata: {str(e)}")
-
-    with col_examples:
-        st.markdown("**💡 Örnek sorular:**")
-        example_questions = [
-            "Bu yiyecek sağlıklı mı?",
-            "Kaç kişilik porsiyon?",
-            "Hangi vitaminler var?",
-            "Diyetime uygun mu?",
-            "Kalori yoğunluğu nasıl?"
-        ]
-
-        for idx, question in enumerate(example_questions):
-            if st.button(question, key=f"example_{idx}"):
-                # Add user message to history
-                st.session_state.chat_history.append({
-                    'role': 'user',
-                    'content': question
-                })
-
-                # Generate response
-                try:
-                    with st.spinner("Cevap hazırlanıyor..."):
-                        model = genai.GenerativeModel('gemini-2.5-flash')
-
-                        # Prepare context
-                        analysis = st.session_state.current_analysis
-                        context = f"""
-                            Kullanıcının yüklediği yiyecek hakkında şu veriler var:
-                            Ağırlık: {analysis['weight']:.1f}g
-                            Kalori: {analysis['calories']:.0f} kcal
-                            Karbonhidrat: {analysis['carbs']:.1f}g
-                            Yağ: {analysis['fat']:.1f}g
-                            Protein: {analysis['protein']:.1f}g
-
-                            Kullanıcı sorusu: {question}
-
-                            Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
-                            """
-
-                        # Include image for better context
-                        image_pil = Image.open(analysis['image'])
-                        response = model.generate_content([context, image_pil])
-
-                        # Add response to history
-                        st.session_state.chat_history.append({
-                            'role': 'assistant',
-                            'content': response.text
-                        })
-
-                        # Rerun to show new messages
-                        st.rerun()
-
-                except Exception as e:
-                    st.error(f"Cevap alınırken hata: {str(e)}")
-                    st.session_state.chat_history.append({
-                        'role': 'assistant',
-                        'content': f"Üzgünüm, bir hata oluştu: {str(e)}"
-                    })
-                    st.rerun()
-
-elif not st.session_state.current_analysis:
-    st.info("👆 Sohbet etmek için önce bir fotoğraf yükleyin ve analiz edin.")
-elif not gemini_api_key:
-    st.warning("⚠️ Sohbet için API anahtarınızı girin.")
-
-# Visualization section (if analysis exists) - in a scrollable container
+# -------------------
+# Footer & Görselleştirme
+# -------------------
 if st.session_state.current_analysis:
     st.markdown("---")
     st.header("📈 Görsel Analiz")
 
-    # Create scrollable container for visualizations
+    # Scrollable container
     st.markdown(
         """
         <div style="max-height: 600px; overflow-y: auto; border: 1px solid #e0e0e0; 
@@ -318,14 +205,10 @@ if st.session_state.current_analysis:
     )
 
     analysis = st.session_state.current_analysis
-
     col_viz1, col_viz2 = st.columns(2)
 
     with col_viz1:
         # Macronutrient pie chart
-        import plotly.express as px
-        import pandas as pd
-
         carb_cal = analysis['carbs'] * 4
         protein_cal = analysis['protein'] * 4
         fat_cal = analysis['fat'] * 9
@@ -367,7 +250,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Instructions
+# Kullanım Talimatları
 with st.expander("📋 Nasıl Kullanılır"):
     st.markdown("""
     **Adım adım kullanım:**
