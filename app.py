@@ -123,61 +123,58 @@ with col1:
 with col2:
     st.header("💬 Beslenme Sohbeti")
 
-    # Scrollable chat container
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
 
     if st.session_state.chat_history:
-        # CSS tanımlamaları
-        st.markdown(
-            """
-            <style>
-            .chat-box {
-                max-height: 400px;
-                overflow-y: auto;
-                border: 1px solid #e0e0e0;
-                border-radius: 10px;
-                padding: 10px;
-                background-color: #fafafa;
-                display: flex;
-                flex-direction: column;
-            }
-            .user-msg {
-                background-color: #e3f2fd;
-                padding: 10px;
-                border-radius: 8px;
-                margin: 5px 0;
-                border-left: 4px solid #2196f3;
-                max-width: 80%;
-                align-self: flex-end;
-            }
-            .assistant-msg {
-                background-color: #f1f8e9;
-                padding: 10px;
-                border-radius: 8px;
-                margin: 5px 0;
-                border-left: 4px solid #4caf50;
-                max-width: 80%;
-                align-self: flex-start;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
+        # CSS + tüm chat div
+        chat_html = """
+        <style>
+        .chat-box {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: #fafafa;
+            display: flex;
+            flex-direction: column;
+        }
+        .user-msg {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 5px 0;
+            border-left: 4px solid #2196f3;
+            max-width: 80%;
+            align-self: flex-end;
+        }
+        .assistant-msg {
+            background-color: #f1f8e9;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 5px 0;
+            border-left: 4px solid #4caf50;
+            max-width: 80%;
+            align-self: flex-start;
+        }
+        </style>
+        <div class="chat-box">
+        """
 
-        # Chat kutusunu aç
-        st.markdown('<div class="chat-box">', unsafe_allow_html=True)
+        # Mesajları HTML stringine ekle
         for message in st.session_state.chat_history:
             if message['role'] == 'user':
-                st.markdown(f'<div class="user-msg">🙋 <strong>Siz:</strong> {message["content"]}</div>',
-                            unsafe_allow_html=True)
+                chat_html += f'<div class="user-msg">🙋 <strong>Siz:</strong> {message["content"]}</div>'
             else:
-                st.markdown(f'<div class="assistant-msg">🤖 <strong>Asistan:</strong> {message["content"]}</div>',
-                            unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                chat_html += f'<div class="assistant-msg">🤖 <strong>Asistan:</strong> {message["content"]}</div>'
+
+        chat_html += '</div>'
+
+        # Tek markdown ile render
+        st.markdown(chat_html, unsafe_allow_html=True)
 
     else:
-        # Sohbet boşsa gösterilecek kutu
         st.markdown(
             """
             <div style="height: 400px; border: 2px dashed #ccc; border-radius: 10px; 
