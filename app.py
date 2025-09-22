@@ -2,8 +2,6 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 from get_prediction import predict_image
-import plotly.express as px
-import pandas as pd
 
 # -------------------
 # Page Config
@@ -189,3 +187,21 @@ with col2:
                 st.chat_message("user").write(message["content"])
             else:
                 st.chat_message("assistant").write(message["content"])
+
+# -------------------
+# Nasıl Kullanılır
+# -------------------
+with st.expander("📋 Nasıl Kullanılır"):
+    st.markdown("""
+    **Adım adım kullanım:**
+
+    1. **API Anahtarı**: Kenar çubuğuna Gemini API anahtarınızı girin.
+    2. **Fotoğraf Yükle**: Sol taraftan bir yiyecek fotoğrafı seçin.
+    3. **İlk Analiz**: Sistem otomatik olarak beslenme analizini yapar.
+    4. **Soru Sor**: Sağ taraftaki chatbot'a istediğiniz soruyu sorun.
+
+    **API Anahtarı almak için:**
+    - [Google AI Studio](https://aistudio.google.com/app/apikey) adresine gidin.
+    - Yeni bir API anahtarı oluşturun.
+    - Eğer API key oluşturamazsanız iletişime geçiniz: ozdemrburak@yahoo.com
+    """)
