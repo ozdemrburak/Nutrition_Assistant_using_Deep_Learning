@@ -72,8 +72,7 @@ def unscale_prediction(output):
     """
     y_mean = torch.tensor([182.817254, 217.43218233, 10.88178516, 16.80198885, 15.04939805], device=output.device)
     y_std = torch.tensor([143.11745907, 196.06303582, 12.62122967, 15.10990037, 18.22648705], device=output.device)
-    y_pred_scaled = output.cpu().numpy()
-    y_pred_original = y_pred_scaled * y_std + y_mean
+    y_pred_original = output * y_std + y_mean
     y_pred_original = torch.clamp(y_pred_original, min=0)
 
     return y_pred_original
