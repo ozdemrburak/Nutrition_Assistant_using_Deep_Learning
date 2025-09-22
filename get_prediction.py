@@ -5,15 +5,6 @@ import torchvision.transforms as transforms
 from huggingface_hub import hf_hub_download
 from transformers import AutoModel
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-model = Siglip2Regressor()
-model_path = hf_hub_download(repo_id="theycallmeburki/siglip2_regressor",
-                             filename="siglip2_regressor_state_dict.pth")
-state_dict = torch.load(model_path, map_location=device)
-model.load_state_dict(state_dict)
-model = model.to(device)
-model.eval()
 
 class Siglip2Regressor(nn.Module):
 
@@ -61,6 +52,17 @@ def predict_image(image_path):
         scaled_prediction = model(image)
 
     return unscale_prediction(scaled_prediction)
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = Siglip2Regressor()
+model_path = hf_hub_download(repo_id="theycallmeburki/siglip2_regressor",
+                             filename="siglip2_regressor_state_dict.pth")
+state_dict = torch.load(model_path, map_location=device)
+model.load_state_dict(state_dict)
+model = model.to(device)
+model.eval()
 
 
 def unscale_prediction(output):
