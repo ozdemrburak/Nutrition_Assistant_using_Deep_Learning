@@ -7,14 +7,13 @@ from transformers import AutoModel
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# modeli bir kere yükle
 model = Siglip2Regressor()
 model_path = hf_hub_download(repo_id="theycallmeburki/siglip2_regressor",
                              filename="siglip2_regressor_state_dict.pth")
 state_dict = torch.load(model_path, map_location=device)
 model.load_state_dict(state_dict)
 model = model.to(device)
-model.eval()   # dropout ve batchnorm freeze
+model.eval()
 
 class Siglip2Regressor(nn.Module):
 
@@ -69,8 +68,8 @@ def unscale_prediction(output):
     - Model eğitirken StandardScaler kullandık. Çıktılar bu sebepten ölçeklenmiş halde dönüyor.
     - Bu fonksiyon gerçek çıktıları döndürür.
     """
-    y_mean = [182.817254, 217.43218233, 10.88178516, 16.80198885, 15.04939805]
-    y_std = [143.11745907, 196.06303582, 12.62122967, 15.10990037, 18.22648705]
+    y_mean = torch.tensor([182.817254, 217.43218233, 10.88178516, 16.80198885, 15.04939805], device=output.device)
+    y_std = torch.tensor([143.11745907, 196.06303582, 12.62122967, 15.10990037, 18.22648705], device=output.device)
     y_pred_scaled = output.cpu().numpy()
     y_pred_original = y_pred_scaled * y_std + y_mean
     y_pred_original = torch.clamp(y_pred_original, min=0)
