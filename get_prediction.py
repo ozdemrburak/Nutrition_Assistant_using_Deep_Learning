@@ -64,8 +64,8 @@ def unscale_prediction(output):
     - Model eğitirken StandardScaler kullandık. Çıktılar bu sebepten ölçeklenmiş halde dönüyor.
     - Bu fonksiyon gerçek çıktıları döndürür.
     """
-    y_mean = [211.20069936, 253.61141603, 12.79815003, 18.99648289, 17.76016044]
-    y_std = [151.06439266, 206.40657935, 13.34529479, 16.02617264, 19.58984867]
+    y_mean = [182.817254, 217.43218233, 10.88178516, 16.80198885, 15.04939805]
+    y_std = [143.11745907, 196.06303582, 12.62122967, 15.10990037, 18.22648705]
     y_pred_scaled = output.cpu().numpy()
     y_pred_original = y_pred_scaled * y_std + y_mean
 
