@@ -120,94 +120,102 @@ with col1:
             except Exception as e:
                 st.error(f"Fotoğraf işlenirken hata: {str(e)}")
 
-    with col2:
-        st.header("💬 Beslenme Sohbeti")
+with col2:
+    st.header("💬 Beslenme Sohbeti")
 
-        # Scrollable chat container
-        chat_container = st.container()
-        with chat_container:
-            if st.session_state.chat_history:
-                chat_area = st.container()
-                with chat_area:
-                    # Scrollable box için CSS
-                    st.markdown(
-                        """
-                        <style>
-                        .scroll-box {
-                            max-height: 400px;
-                            overflow-y: auto;
-                            border: 1px solid #e0e0e0;
-                            border-radius: 10px;
-                            padding: 15px;
-                            background-color: #fafafa;
-                        }
-                        .user-msg {
-                            background-color: #e3f2fd;
-                            padding: 10px;
-                            border-radius: 8px;
-                            margin: 8px 0;
-                            border-left: 4px solid #2196f3;
-                        }
-                        .assistant-msg {
-                            background-color: #f1f8e9;
-                            padding: 10px;
-                            border-radius: 8px;
-                            margin: 8px 0;
-                            border-left: 4px solid #4caf50;
-                        }
-                        </style>
-                        """,
-                        unsafe_allow_html=True
-                    )
+    # Scrollable chat container
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
 
-                    st.markdown('<div class="scroll-box">', unsafe_allow_html=True)
-                    for i, message in enumerate(st.session_state.chat_history):
-                        if message['role'] == 'user':
-                            st.markdown(f'<div class="user-msg"><strong>🙋 Siz:</strong> {message["content"]}</div>',
-                                        unsafe_allow_html=True)
-                        else:
-                            st.markdown(
-                                f'<div class="assistant-msg"><strong>🤖 Asistan:</strong> {message["content"]}</div>',
-                                unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(
-                    """
-                    <div style="height: 150px; border: 2px dashed #ccc; border-radius: 10px; 
-                                display: flex; align-items: center; justify-content: center; 
-                                color: #666; margin-bottom: 20px;">
-                        <p>💭 Sohbet henüz başlamadı. Bir fotoğraf yükleyin ve soru sormaya başlayın!</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-    # Chat input
-    if st.session_state.current_analysis and gemini_api_key:
-        user_question = st.text_input(
-            "Beslenme hakkında soru sorun:",
-            placeholder="Örnek: Bu yiyecek kaç kişilik? Diyetime uygun mu? Hangi besinler eksik?",
-            key="user_input"
+    if st.session_state.chat_history:
+        # CSS tanımlamaları
+        st.markdown(
+            """
+            <style>
+            .chat-box {
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #e0e0e0;
+                border-radius: 10px;
+                padding: 10px;
+                background-color: #fafafa;
+                display: flex;
+                flex-direction: column;
+            }
+            .user-msg {
+                background-color: #e3f2fd;
+                padding: 10px;
+                border-radius: 8px;
+                margin: 5px 0;
+                border-left: 4px solid #2196f3;
+                max-width: 80%;
+                align-self: flex-end;
+            }
+            .assistant-msg {
+                background-color: #f1f8e9;
+                padding: 10px;
+                border-radius: 8px;
+                margin: 5px 0;
+                border-left: 4px solid #4caf50;
+                max-width: 80%;
+                align-self: flex-start;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
         )
 
-        col_send, col_examples = st.columns([1, 2])
+        # Chat kutusunu aç
+        st.markdown('<div class="chat-box">', unsafe_allow_html=True)
+        for message in st.session_state.chat_history:
+            if message['role'] == 'user':
+                st.markdown(f'<div class="user-msg">🙋 <strong>Siz:</strong> {message["content"]}</div>',
+                            unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="assistant-msg">🤖 <strong>Asistan:</strong> {message["content"]}</div>',
+                            unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        with col_send:
-            if st.button("📨 Gönder") and user_question:
-                # Add user message to history
-                st.session_state.chat_history.append({
-                    'role': 'user',
-                    'content': user_question
-                })
+    else:
+        # Sohbet boşsa gösterilecek kutu
+        st.markdown(
+            """
+            <div style="height: 400px; border: 2px dashed #ccc; border-radius: 10px; 
+                        display: flex; align-items: center; justify-content: center; 
+                        color: #666; margin-bottom: 20px; padding: 10px;">
+                <p>💭 Sohbet henüz başlamadı. Bir fotoğraf yükleyin ve soru sormaya başlayın!</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-                # Generate response
-                try:
-                    with st.spinner("Cevap hazırlanıyor..."):
-                        model = genai.GenerativeModel('gemini-2.5-flash')
 
-                        # Prepare context
-                        analysis = st.session_state.current_analysis
-                        context = f"""
+# Chat input
+if st.session_state.current_analysis and gemini_api_key:
+    user_question = st.text_input(
+        "Beslenme hakkında soru sorun:",
+        placeholder="Örnek: Bu yiyecek kaç kişilik? Diyetime uygun mu? Hangi besinler eksik?",
+        key="user_input"
+    )
+
+    col_send, col_examples = st.columns([1, 2])
+
+    with col_send:
+        if st.button("📨 Gönder") and user_question:
+            # Add user message to history
+            st.session_state.chat_history.append({
+                'role': 'user',
+                'content': user_question
+            })
+
+            # Generate response
+            try:
+                with st.spinner("Cevap hazırlanıyor..."):
+                    model = genai.GenerativeModel('gemini-2.5-flash')
+
+                    # Prepare context
+                    analysis = st.session_state.current_analysis
+                    context = f"""
                         Kullanıcının yüklediği yiyecek hakkında şu veriler var:
                         Ağırlık: {analysis['weight']:.1f}g
                         Kalori: {analysis['calories']:.0f} kcal
@@ -223,48 +231,48 @@ with col1:
                         Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
                         """
 
-                        # Include image for better context
-                        image_pil = Image.open(analysis['image'])
-                        response = model.generate_content([context, image_pil])
+                    # Include image for better context
+                    image_pil = Image.open(analysis['image'])
+                    response = model.generate_content([context, image_pil])
 
-                        # Add response to history
-                        st.session_state.chat_history.append({
-                            'role': 'assistant',
-                            'content': response.text
-                        })
-
-                        # Clear input and rerun
-                        st.rerun()
-
-                except Exception as e:
-                    st.error(f"Cevap alınırken hata: {str(e)}")
-
-        with col_examples:
-            st.markdown("**💡 Örnek sorular:**")
-            example_questions = [
-                "Bu yiyecek sağlıklı mı?",
-                "Kaç kişilik porsiyon?",
-                "Hangi vitaminler var?",
-                "Diyetime uygun mu?",
-                "Kalori yoğunluğu nasıl?"
-            ]
-
-            for idx, question in enumerate(example_questions):
-                if st.button(question, key=f"example_{idx}"):
-                    # Add user message to history
+                    # Add response to history
                     st.session_state.chat_history.append({
-                        'role': 'user',
-                        'content': question
+                        'role': 'assistant',
+                        'content': response.text
                     })
 
-                    # Generate response
-                    try:
-                        with st.spinner("Cevap hazırlanıyor..."):
-                            model = genai.GenerativeModel('gemini-2.5-flash')
+                    # Clear input and rerun
+                    st.rerun()
 
-                            # Prepare context
-                            analysis = st.session_state.current_analysis
-                            context = f"""
+            except Exception as e:
+                st.error(f"Cevap alınırken hata: {str(e)}")
+
+    with col_examples:
+        st.markdown("**💡 Örnek sorular:**")
+        example_questions = [
+            "Bu yiyecek sağlıklı mı?",
+            "Kaç kişilik porsiyon?",
+            "Hangi vitaminler var?",
+            "Diyetime uygun mu?",
+            "Kalori yoğunluğu nasıl?"
+        ]
+
+        for idx, question in enumerate(example_questions):
+            if st.button(question, key=f"example_{idx}"):
+                # Add user message to history
+                st.session_state.chat_history.append({
+                    'role': 'user',
+                    'content': question
+                })
+
+                # Generate response
+                try:
+                    with st.spinner("Cevap hazırlanıyor..."):
+                        model = genai.GenerativeModel('gemini-2.5-flash')
+
+                        # Prepare context
+                        analysis = st.session_state.current_analysis
+                        context = f"""
                             Kullanıcının yüklediği yiyecek hakkında şu veriler var:
                             Ağırlık: {analysis['weight']:.1f}g
                             Kalori: {analysis['calories']:.0f} kcal
@@ -277,31 +285,31 @@ with col1:
                             Sadece bu beslenme verilerine dayanarak cevap ver. Kısa ve anlaşılır ol (100-200 kelime). Türkçe cevapla.
                             """
 
-                            # Include image for better context
-                            image_pil = Image.open(analysis['image'])
-                            response = model.generate_content([context, image_pil])
+                        # Include image for better context
+                        image_pil = Image.open(analysis['image'])
+                        response = model.generate_content([context, image_pil])
 
-                            # Add response to history
-                            st.session_state.chat_history.append({
-                                'role': 'assistant',
-                                'content': response.text
-                            })
-
-                            # Rerun to show new messages
-                            st.rerun()
-
-                    except Exception as e:
-                        st.error(f"Cevap alınırken hata: {str(e)}")
+                        # Add response to history
                         st.session_state.chat_history.append({
                             'role': 'assistant',
-                            'content': f"Üzgünüm, bir hata oluştu: {str(e)}"
+                            'content': response.text
                         })
+
+                        # Rerun to show new messages
                         st.rerun()
 
-    elif not st.session_state.current_analysis:
-        st.info("👆 Sohbet etmek için önce bir fotoğraf yükleyin ve analiz edin.")
-    elif not gemini_api_key:
-        st.warning("⚠️ Sohbet için API anahtarınızı girin.")
+                except Exception as e:
+                    st.error(f"Cevap alınırken hata: {str(e)}")
+                    st.session_state.chat_history.append({
+                        'role': 'assistant',
+                        'content': f"Üzgünüm, bir hata oluştu: {str(e)}"
+                    })
+                    st.rerun()
+
+elif not st.session_state.current_analysis:
+    st.info("👆 Sohbet etmek için önce bir fotoğraf yükleyin ve analiz edin.")
+elif not gemini_api_key:
+    st.warning("⚠️ Sohbet için API anahtarınızı girin.")
 
 # Visualization section (if analysis exists) - in a scrollable container
 if st.session_state.current_analysis:
